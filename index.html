@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <!-- Fix use link to bootstrap 4 in production (it dosn't require a js file) -->
+    <!-- <link rel='stylesheet' href="./components/bootstrap/dist/css/bootstrap.css" /> -->
+    <!-- <link rel="stylesheet" href="./styles.css"/> -->
+    <link rel="stylesheet" href="/bootstrap/dist/css/bootstrap.css" />
+    <link rel="stylesheet" href="/styles2.css" />
+    <title>Mongochat</title>
+    <style>
+      #messages {
+        height: 300px;
+        /* background-color: snow; */
+        /* background: none; */
+        /* border-radius: 30px; */
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="chat">
+      <div class="">
+        <div class="">
+          <h1 class="text-center chat-title">
+            MongoChat
+            <button id="clear" class="btn btn-danger">Clear</button>
+          </h1>
+          <div id="status"></div>
+          <div id="chat">
+            <input
+              type="text"
+              id="username"
+              class="form-control"
+              placeholder="Enter name..."
+            />
+            <br />
+            <div class="messages">
+              <div
+                id="messages"
+                class="message-content"
+                style="
+    /* background: none; */
+"
+              ></div>
+            </div>
+            <br />
+            <div class="message-box">
+              <textarea
+                id="textarea"
+                class="form-control message-input"
+                placeholder="Enter message..."
+              ></textarea>
+              <button type="submit" id="send" class="message-submit">
+                Send
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="bg"></div>
+    <!--  may need external library if socket..io tag dosnt work (7:10) -->
+    <script src="socket.io/socket.io.js"></script>
+    <script>
+      (function() {
+        var element = function(id) {
+          return document.getElementById(id);
+        };
+
+        //Get elements
+        var status = element("status");
+        var messages = element("messages");
+        var textarea = element("textarea");
+        var username = element("username");
+        var clearBtn = element("clear");
+        var sendBtn = element("send");
+
+        //Set defualt status
+        var statusDefault = status.textContent;
+        var setStatus = function(s) {
+          status.textContent = s;
+
+          if (s !== statusDefault) {
+            var delay = setTimeout(function() {
+              setStatus(statusDefault);
+            }, 4000);
+          }
+        };
+
+        //Connect to socket
+        var socket = io.connect("http://127.0.0.1:4000");
+
+        if (socket !== undefined) {
+          console.log("connected to socket...");
+
+          //Handle output
+          socket.on("output", function(data) {
+            console.log(data);
+            if (data.length) {
+              for (var x = 0; x < data.length; x++) {
+                //Build out message
+                var message = document.createElement("div");
+                message.setAttribute("class", "chat-message message new");
+
+                if (data[x].name === document.getElementById("username").value)
+                  message.className += " owner";
+                message.textContent = data[x].name + ": " + data[x].message;
+                messages.appendChild(message);
+                messages.insertBefore(message, messages.firstChild);
+              }
+            }
+          });
+
+          //Get status from server
+          socket.on("status", function(data) {
+            //get message status
+            setStatus(typeof data === "object" ? data.message : data);
+
+            //If status is clear, clear text
+            if (data.clear) {
+              textarea.value = "";
+            }
+          });
+
+          //Handle input
+          textarea.addEventListener("keydown", function(event) {
+            if (event.which === 13 && event.shiftKey === false) {
+              //Emit to server input
+              socket.emit("input", {
+                name: username.value,
+                message: textarea.value,
+              });
+
+              event.preventDefault();
+            }
+          });
+          sendBtn.addEventListener("click", function(event) {
+            //Emit to server input
+            socket.emit("input", {
+              name: username.value,
+              message: textarea.value,
+            });
+
+            event.preventDefault();
+          });
+
+          // Handle chat clear
+          clearBtn.addEventListener("click", function() {
+            socket.emit("clear");
+          });
+
+          socket.on("cleared", function() {
+            messages.textContent = "";
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>
